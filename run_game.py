@@ -10,7 +10,16 @@ import collections
 
 DISPLAY_SIZE = (600, 500)
 FPS = 1 / 60.0
-BAT_SPEED = 50.0
+BAT_SPEED = 80.0
+
+
+class Position(object):
+    def __init__(self, x, y):
+        self.x = 0
+        self.y = 0
+
+    def __iter__(self):
+        return iter((self.x, self.y))
 
 
 class txPong(object):
@@ -21,6 +30,7 @@ class txPong(object):
     def __init__(self):
         self.group = None
         self.surface = None
+        self.background = None
         self.bats = None
         self.pressed = None
         self.surface_lock = threading.Lock()
@@ -29,6 +39,8 @@ class txPong(object):
         def func0(result=None):
             self.surface = pygame.display.set_mode(DISPLAY_SIZE)
             self.surface.fill((0, 0, 0))
+            self.background = pygame.Surface(DISPLAY_SIZE)
+            self.background.fill((0, 0, 0))
 
         def func1(result=None):
             return threads.deferToThread(self.handle_display)
@@ -58,18 +70,21 @@ class txPong(object):
             bat.rect = pygame.Rect(rect)
             bat.image = pygame.Surface(bat.rect.size)
             bat.image.fill((255, 255, 255))
-            bat.position = Position(0, 0)
+            bat.position = Position(*bat.rect.topleft)
             return bat
 
-        rect = (0, 0, 30, 120)
-        bat1 = make_bat(rect)
-        bat2 = make_bat(rect)
+        w = 30
+        h = 120
+        y = DISPLAY_SIZE[1] / 2 - h / 2
+        bat1 = make_bat((0, y, w, h))
+        bat2 = make_bat((DISPLAY_SIZE[0] - w, y, w, h))
 
-        rect = (0, 0, 30, 30)
-        ball = make_bat(rect)
+        ball = make_bat((DISPLAY_SIZE[0] / 2 - w / 2,
+                         DISPLAY_SIZE[1] / 2 - h / 2,
+                         w, w))
 
         self.sprites = [bat1, bat2, ball]
-        self.group = pygame.sprite.Group()
+        self.group = pygame.sprite.RenderUpdates()
         self.group.add(*self.sprites)
 
     def handle_events(self, events):
@@ -83,7 +98,7 @@ class txPong(object):
                 except KeyError:
                     pass
 
-        self.handle_time(1/60.)
+        self.handle_time(1 / 60.)
 
     def handle_time(self, td):
         get = self.pressed.get
@@ -92,10 +107,12 @@ class txPong(object):
         elif get(K_DOWN):
             self.sprites[0].position.y += BAT_SPEED * td / 100
 
-        self.sprites[0].rect.topleft = self.sprites[0].position
+        x, y = self.sprites[0].position
+        self.sprites[0].rect.topleft = (x, y)
 
     def handle_display(self, result=None):
         with self.surface_lock:
+            self.group.clear(self.surface, self.background)
             self.group.draw(self.surface)
             pygame.display.flip()
 
